@@ -13,7 +13,7 @@ Este programa em C permite gerenciar usuários com funcionalidades de criação,
 ## Requisitos
 
 - Compilador C (GCC, por exemplo).
-- Sistema operacional Unix-like (Linux/macOS), ajustes podem ser necessários para Windows.
+- Sistema operacional Linux, macOS, ajustes podem ser necessários para Windows.
 
 ## Como Usar
 
