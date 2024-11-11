@@ -9,6 +9,11 @@
 #define PASSWORD_LENGTH 80
 #define MAX_USERS 100
 
+#define RESET "\033[0m"
+#define BOLD "\033[1m"
+#define CYAN "\033[36m"
+#define YELLOW "\033[33m"
+
 typedef struct {
     char username[USERNAME_LENGTH];
     char password[PASSWORD_LENGTH];
@@ -16,10 +21,9 @@ typedef struct {
 
 User users[MAX_USERS];
 int userCount = 0;
-int generatedCode = 0; // Armazena o código gerado para validação
-bool isTwoFactorVerified = false; // Controle de verificação de dois fatores
+int generatedCode = 0;
+bool isTwoFactorVerified = false;
 
-// Função de criptografia da senha
 void criptografia(char string[]) {
     time_t agora;
     struct tm *relogio;
@@ -34,48 +38,42 @@ void criptografia(char string[]) {
     strncpy(min, relogioString + 2, 2); min[2] = '\0';
     strncpy(seg, relogioString + 4, 2); seg[2] = '\0';
 
-    int ascii;
-    for (int i = 0; i < strlen(string); i++) {
-        ascii = (int)string[i];
-        string[i] = (char)(ascii + atoi(hor) - atoi(min) + atoi(seg));
-    }
-
     int horInt = atoi(hor), minInt = atoi(min), segInt = atoi(seg);
-    string[strlen(string)] = (char)(horInt + 30 + strlen(string));
-    string[strlen(string) + 1] = (char)(minInt + 30 + (strlen(string) - 1));
-    string[strlen(string) + 2] = (char)(segInt + 30 + (strlen(string) - 2));
-    string[strlen(string) + 3] = '\0';
-}
-
-// Função de descriptografia da senha
-void descriptografia(char string[]) {
-    int ascii, descSeg, descMin, descHor;
-    char descriptChar;
-
-    char asciiSeg = string[strlen(string) - 1];
-    descSeg = (int)asciiSeg - 30 - (strlen(string) - 3);
-    string[strlen(string) - 1] = '\0';
-
-    char asciiMin = string[strlen(string) - 1];
-    descMin = (int)asciiMin - 30 - (strlen(string) - 2);
-    string[strlen(string) - 1] = '\0';
-
-    char asciiHor = string[strlen(string) - 1];
-    descHor = (int)asciiHor - 30 - (strlen(string) - 1);
-    string[strlen(string) - 1] = '\0';
 
     for (int i = 0; i < strlen(string); i++) {
-        ascii = (int)string[i];
-        descriptChar = ascii - descHor + descMin - descSeg;
-        string[i] = (char)descriptChar;
+        int ascii = (int)string[i];
+        string[i] = (char)(ascii + horInt - minInt + segInt);
+    }
+
+    int len = strlen(string);
+    string[len] = (char)(horInt + 30);
+    string[len + 1] = (char)(minInt + 30);
+    string[len + 2] = (char)(segInt + 30);
+    string[len + 3] = '\0';
+}
+
+void descriptografia(char string[]) {
+    int len = strlen(string);
+
+    int descSeg = (int)string[len - 1] - 30;
+    string[len - 1] = '\0';
+
+    int descMin = (int)string[len - 2] - 30;
+    string[len - 2] = '\0';
+
+    int descHor = (int)string[len - 3] - 30;
+    string[len - 3] = '\0';
+
+    for (int i = 0; i < strlen(string); i++) {
+        int ascii = (int)string[i];
+        string[i] = (char)(ascii - descHor + descMin - descSeg);
     }
 }
 
-// Função para salvar os usuários no arquivo
 void saveToFile() {
     FILE *file = fopen("bancoDados.txt", "w");
     if (file == NULL) {
-        printf("Erro ao abrir o arquivo!\n");
+        printf("erro ao abrir o arquivo!\n");
         return;
     }
 
@@ -86,11 +84,10 @@ void saveToFile() {
     fclose(file);
 }
 
-// Função para carregar os usuários do arquivo
 void loadFromFile() {
     FILE *file = fopen("bancoDados.txt", "r");
     if (file == NULL) {
-        printf("Arquivo não encontrado. Um novo arquivo será criado ao salvar dados.\n");
+        printf("arquivo nao encontrado. um novo arquivo sera criado ao salvar dados.\n");
         return;
     }
 
@@ -102,18 +99,17 @@ void loadFromFile() {
     fclose(file);
 }
 
-// Função para criar um novo usuário
 void createUser() {
     if (userCount >= MAX_USERS) {
-        printf("Limite de usuários atingido.\n");
+        printf("limite de usuarios atingido.\n");
         return;
     }
 
     char username[USERNAME_LENGTH], password[PASSWORD_LENGTH];
-    printf("Digite o nome de usuário: ");
+    printf("digite o nome de usuario: ");
     scanf("%s", username);
 
-    printf("Digite a senha: ");
+    printf("digite a senha: ");
     scanf("%s", password);
 
     criptografia(password);
@@ -123,32 +119,24 @@ void createUser() {
     userCount++;
 
     saveToFile();
-    printf("Usuário criado com sucesso!\n");
+    printf("usuario criado com sucesso!\n");
 }
 
-// Função para listar todos os usuários com senha criptografada
-void listUsers() {
-    printf("Lista de usuários:\n");
+void listUsers(bool decrypted) {
+    printf("\nlista de usuarios:\n");
     for (int i = 0; i < userCount; i++) {
-        printf("Usuário: %s | Senha Criptografada: %s\n", users[i].username, users[i].password);
+        char displayedPassword[PASSWORD_LENGTH];
+        strcpy(displayedPassword, users[i].password);
+        if (decrypted) {
+            descriptografia(displayedPassword);
+        }
+        printf("usuario: %s | senha: %s\n", users[i].username, displayedPassword);
     }
 }
 
-// Função para listar todos os usuários com a senha descriptografada
-void listDecryptedUsers() {
-    printf("\nLista de usuários com senha descriptografada:\n");
-    for (int i = 0; i < userCount; i++) {
-        char decryptedPassword[PASSWORD_LENGTH];
-        strcpy(decryptedPassword, users[i].password); // Copia a senha criptografada
-        descriptografia(decryptedPassword); // Descriptografa a cópia
-        printf("Usuário: %s | Senha Descriptografada: %s\n", users[i].username, decryptedPassword); // Exibe a senha correta
-    }
-}
-
-// Função para atualizar a senha de um usuário existente
 void updateUser() {
     char username[USERNAME_LENGTH], password[PASSWORD_LENGTH];
-    printf("Digite o nome de usuário para atualizar a senha: ");
+    printf("digite o nome de usuario para atualizar a senha: ");
     scanf("%s", username);
 
     int found = -1;
@@ -160,21 +148,20 @@ void updateUser() {
     }
 
     if (found != -1) {
-        printf("Digite a nova senha: ");
+        printf("digite a nova senha: ");
         scanf("%s", password);
         criptografia(password);
         strcpy(users[found].password, password);
         saveToFile();
-        printf("Senha atualizada com sucesso!\n");
+        printf("senha atualizada com sucesso!\n");
     } else {
-        printf("Usuário não encontrado.\n");
+        printf("usuario nao encontrado.\n");
     }
 }
 
-// Função para excluir um usuário
 void deleteUser() {
     char username[USERNAME_LENGTH];
-    printf("Digite o nome de usuário para excluir: ");
+    printf("digite o nome de usuario para excluir: ");
     scanf("%s", username);
 
     int found = -1;
@@ -191,54 +178,50 @@ void deleteUser() {
         }
         userCount--;
         saveToFile();
-        printf("Usuário excluído com sucesso!\n");
+        printf("usuario excluido com sucesso!\n");
     } else {
-        printf("Usuário não encontrado.\n");
+        printf("usuario nao encontrado.\n");
     }
 }
 
-// Funcao para gerar o codigo de verificacao de dois fatores
 int generateTwoFactorCode() {
     srand(time(0));
-    return rand() % 900000 + 100000; // Gera um numero entre 100000 e 999999
+    return rand() % 900000 + 100000;
 }
 
-// Funcao para mostrar o codigo ao usuario (Opcao 5)
 void showTwoFactorCode() {
     generatedCode = generateTwoFactorCode();
-    printf("Seu codigo de verificacao de dois fatores e: %d\n", generatedCode);
+    printf("seu codigo de verificacao de dois fatores e: %d\n", generatedCode);
 }
 
-// Menu principal
+void showMenu() {
+    printf("\n%s%s=========================================%s\n", BOLD, CYAN, RESET);
+    printf("%s%s       gerenciador de usuarios       %s\n", BOLD, CYAN, RESET);
+    printf("%s%s=========================================%s\n", BOLD, CYAN, RESET);
+    printf("%s%s [1]%s criar usuario\n", BOLD, YELLOW, RESET);
+    printf("%s%s [2]%s listar usuarios\n", BOLD, YELLOW, RESET);
+    printf("%s%s [3]%s atualizar senha do usuario\n", BOLD, YELLOW, RESET);
+    printf("%s%s [4]%s excluir usuario\n", BOLD, YELLOW, RESET);
+    printf("%s%s [5]%s gerar codigo de verificacao em dois fatores\n", BOLD, YELLOW, RESET);
+    printf("%s%s [0]%s sair\n", BOLD, YELLOW, RESET);
+    printf("%s%s=========================================%s\n", BOLD, CYAN, RESET);
+    printf("%sescolha uma opcao ou insira o codigo de verificacao:%s ", BOLD, RESET);
+}
+
 int main() {
     setlocale(LC_ALL,"");
     loadFromFile();
     int choice;
-    int userInputCode;
 
     do {
-        printf("\nMenu:\n");
-        printf("1. Criar usuario\n");
-        printf("2. Listar usuarios\n");
-        printf("3. Atualizar senha do usuario\n");
-        printf("4. Excluir usuario\n");
-        printf("5. Gerar codigo de verificacao em dois fatores\n");
-
-        // Mostra a opcao 6 apenas se a verificacao em dois fatores foi realizada
-        if (isTwoFactorVerified) {
-            printf("6. Listar usuarios descriptografados\n");
-        }
-
-        printf("0. Sair\n");
-        printf("Escolha uma opcao ou insira o codigo de verificacao: ");
+        showMenu();
         scanf("%d", &choice);
 
-        // Verifica se o usuario digitou o codigo de dois fatores
         if (choice == generatedCode && generatedCode != 0) {
-            printf("Codigo correto! Opcao 6 desbloqueada.\n");
+            printf("\n%s** codigo correto! senhas serao exibidas descriptografadas. **%s\n", BOLD, RESET);
             isTwoFactorVerified = true;
-            generatedCode = 0; // Reseta o codigo para evitar reuso
-            continue; // Volta ao menu para mostrar a opcao 6 desbloqueada
+            generatedCode = 0;
+            continue;
         }
 
         switch (choice) {
@@ -246,7 +229,7 @@ int main() {
                 createUser();
                 break;
             case 2:
-                listUsers();
+                listUsers(isTwoFactorVerified);
                 break;
             case 3:
                 updateUser();
@@ -257,18 +240,11 @@ int main() {
             case 5:
                 showTwoFactorCode();
                 break;
-            case 6:
-                if (isTwoFactorVerified) {
-                    listDecryptedUsers();
-                } else {
-                    printf("Opcao invalida. Tente novamente.\n");
-                }
-                break;
             case 0:
-                printf("Saindo...\n");
+                printf("\n%s** saindo do programa... obrigado! **%s\n", BOLD, RESET);
                 break;
             default:
-                printf("Opcao invalida. Tente novamente.\n");
+                printf("\n%s** opcao invalida. tente novamente! **%s\n", BOLD, RESET);
                 break;
         }
     } while (choice != 0);
